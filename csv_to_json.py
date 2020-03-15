@@ -1,3 +1,6 @@
+"""
+Convert json file to csv format
+"""
 import csv
 import sys
 import os
