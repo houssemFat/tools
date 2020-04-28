@@ -1,0 +1,22 @@
+{
+  "name": "tools",
+  "version": "1.0.0",
+  "description": "",
+  "main": "pdf.pupeeter.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://gitlab.com/houssemFat/tools.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://gitlab.com/houssemFat/tools/issues"
+  },
+  "homepage": "https://gitlab.com/houssemFat/tools#README",
+  "dependencies": {
+    "puppeteer": "^1.17.0"
+  }
+}
