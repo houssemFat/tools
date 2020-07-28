@@ -1,0 +1,435 @@
+<!doctype html>
+<html class="no-js" lang="">
+<head>
+    <meta charset="utf-8">
+    <title></title>
+    <style>
+        #myCanvas {
+            border: solid 2px red;
+        }
+
+        #svgLayer {
+            border: solid 2px green;
+        }
+
+        .path-edge {
+            fill: none;
+            stroke: blue;
+            stroke-width: 1px;
+        }
+
+        .path-edge:hover {
+            fill: orange !important;
+        }
+
+        .g-active {
+            fill: rgba(255, 165, 0, 0.59);
+        }
+
+        .g-active .path-edge {
+            fill: #28cbcb;
+        }
+    </style>
+</head>
+
+<body>
+<style>
+    #circle {
+        border-radius: 50%;
+        width: 40px;
+        height: 40px;
+        border: solid 2px black;
+        position: relative;
+        margin-top: 300px;
+        margin-left: 300px;
+    }
+
+    #indicator {
+        width: 40px;
+        height: 1px;
+        top: 20px;
+        position: absolute;
+        transform: rotate(45deg);
+    }
+
+
+    #indicator_circle {
+        border-radius: 50%;
+        width: 10px;
+        height: 10px;
+        border: solid 1px black;
+        position: absolute;
+        background: yellow;
+        right: -6px;
+        top: -6px;
+    }
+
+</style>
+<div id="circle">
+    <div id="indicator">
+        <div id="indicator_circle"></div>
+    </div>
+</div>
+<input id="degree_value" style="background: orange; color: white"/><br/>
+<span id="rotate_x_value" style="background: orange; color: white"></span><br/>
+<span id="rotate_y_value" style="background: orange; color: white"></span><br/>
+<div id="center"></div>
+
+
+<button id="free_drawing_btn_on">On free drawing</button>
+<button id="free_drawing_btn_off">off free drawing</button>
+<button id="new_Path">new path</button>
+<canvas id="myCanvas" width="600" height="600">
+    Fallback content, in case the browser does not support Canvas.
+</canvas>
+<svg id="svgLayer" width="600" height="600">
+
+</svg>
+
+<script>
+	let canvas = document.getElementById("myCanvas");
+	let context = canvas.getContext('2d');
+
+	function FreeDraw() {
+		this.canvas = canvas;
+		this.isDrawing = false;
+		this._eventHandlers = {
+			mousemove: this.mousemove.bind(this),
+			onmousedown: this.onmousedown.bind(this),
+			mouseup: this.mouseup.bind(this)
+		};
+	}
+
+	Object.assign(
+			FreeDraw.prototype,
+			{
+				getMousePos: function (evt) {
+					let rect = canvas.getBoundingClientRect();
+					return {
+						x: evt.clientX - rect.left,
+						y: evt.clientY - rect.top
+					};
+				},
+				onmousedown: function (event) {
+					this.isDrawing = true;
+					context.beginPath();
+					context.lineWidth = 5;
+					context.strokeStyle = 'blue';
+					let pos = this.getMousePos(event);
+					context.moveTo(pos.x, pos.y);
+				},
+				mousemove: function (event) {
+					if (this.isDrawing) {
+						let pos = this.getMousePos(event);
+						// line 1
+						context.lineTo(pos.x, pos.y);
+						context.stroke();
+					}
+				},
+				mouseup: function () {
+					this.isDrawing = false;
+				},
+				onOff: function (activate) {
+					// think about binding and arrow function
+					let me = this;
+					let functionToCall = activate ? "addEventListener" : "removeEventListener";
+					// just an abbrev of this.canvas.removeEventListener or this.canvas.addEventListener
+					let _fn = this.canvas[functionToCall];
+					console.log(_fn);
+					_fn('mousedown', this._eventHandlers.onmousedown, true);
+					_fn('mousemove', this._eventHandlers.mousemove, true);
+					_fn('mouseup', this._eventHandlers.mouseup, true);
+				},
+				on: function () {
+					this.onOff(true);
+				},
+				off: function () {
+					this.onOff(false);
+				}
+			}
+	);
+	let fd = new FreeDraw();
+	document.getElementById('free_drawing_btn_on').addEventListener('click', function () {
+		fd.on();
+	});
+	document.getElementById('free_drawing_btn_off').addEventListener('click', function () {
+		fd.off();
+	});
+
+
+</script>
+<script>
+	pubsub = {
+		subscribers: {},
+		sub(event, fn) {
+			if (!pubsub.subscribers[event]) {
+				pubsub.subscribers[event] = []
+			}
+			pubsub.subscribers[event].push(fn);
+		},
+		pub(event, data) {
+			if (pubsub.subscribers[event]) {
+				for (let i = 0; i < pubsub.subscribers[event].length; i++) {
+					pubsub.subscribers[event][i](data);
+				}
+			}
+		}
+	};
+	let svg = document.getElementById("svgLayer");
+	const CLICK = 'mousedown';
+	const MOUSE_MOVE = 'mousemove';
+	const MOUSE_UP = 'onmouseup';
+	/********************/
+	let LayerEditor = function () {
+		this.active = null;
+		this.svg = svg;
+		this._eventHandlers = {
+			onmousedown: this.onmousedown.bind(this),
+			onmousemove: this.onmousemove.bind(this),
+			onmouseup: this.onmouseup.bind(this),
+		};
+		this.svg.addEventListener('mousedown', this._eventHandlers.onmousedown, false);
+		this.svg.addEventListener('mousemove', this._eventHandlers.onmousemove, false);
+		this.svg.addEventListener('mouseup', this._eventHandlers.onmouseup, false);
+	};
+	Object.assign(
+			LayerEditor.prototype,
+
+			{
+				onmousedown: function (evt) {
+					console.log('LayerEditor : %c onmousedown', 'color:white;background:green');
+					if (this.active) {
+						this.active.handleEvent(CLICK, evt);
+					}
+				},
+				onmousemove: function (evt) {
+					console.log('LayerEditor : %c onmousemove', 'color:white;background:green');
+					if (this.active) {
+						this.active.handleEvent(MOUSE_MOVE, evt);
+					}
+				},
+				onmouseup: function (evt) {
+					console.log('LayerEditor : %c onmouseup', 'color:white;background:green');
+					if (this.active) {
+						this.active.handleEvent(MOUSE_UP, evt);
+					}
+				},
+				setActive: function (element) {
+					console.log('active me');
+					this.active = element;
+					pubsub.pub('active', {id: this.active.id, 'action': 'newEvent'});
+				}
+
+			});
+	/*******************/
+	let ACTIVE_CLASS = "g-active";
+
+	function Group(options) {
+		this._eventHandlers = {
+			onEdgeClick: this.onEdgeClick.bind(this),
+			onPathClick: this.onPathClick.bind(this),
+
+		};
+		this.lines = [];
+		this.svgGroup = null;
+		//
+		this.layer = options.layer;
+		// shortcut
+		this.svg = this.layer.svg;
+		this.id = 'path_' + Date.now();
+		pubsub.sub('active', this.onIdleAction.bind(this));
+		this.activate();
+	}
+
+	Object.assign(
+			Group.prototype,
+			{
+				getMousePos(evt) {
+					let rect = svg.getBoundingClientRect();
+					return {
+						x: evt.clientX - rect.left,
+						y: evt.clientY - rect.top
+					};
+				},
+				handleEvent(eventType, evt) {
+					if (eventType === CLICK) {
+						return this._handleClick(evt);
+					}
+					if (eventType === MOUSE_MOVE) {
+						return this._handleMouseMove(evt);
+					}
+					if (eventType === MOUSE_UP) {
+						return this._handleMouseUp(evt);
+					}
+				},
+				_initGroup(options) {
+					let svgns = "http://www.w3.org/2000/svg";
+					this.svgGroup = document.createElementNS(svgns, 'g');
+					this.path = document.createElementNS(svgns, 'path');
+					this.svg.appendChild(this.svgGroup);
+					this.svgGroup.appendChild(this.path);
+					this.svgGroup.addEventListener('mousedown', this._eventHandlers.onPathClick, false);
+
+				},
+				onPathClick() {
+					this.activate();
+				},
+				activate() {
+					this.layer.setActive(this);
+					if (this.svgGroup) {
+						this.svgGroup.classList.add(ACTIVE_CLASS);
+					}
+				},
+				_appendEdge(options) {
+					var svgns = "http://www.w3.org/2000/svg";
+					var circle = document.createElementNS(svgns, 'circle');
+					circle.setAttributeNS(null, 'cx', options.position.x);
+					circle.setAttributeNS(null, 'cy', options.position.y);
+					circle.setAttributeNS(null, 'r', 6);
+					circle.classList.add("path-edge");
+					circle.setAttributeNS(null, 'data-index', '' + this.lines.length);
+					this.svgGroup.appendChild(circle);
+					circle.addEventListener('mousedown', this._eventHandlers.onEdgeClick, false);
+				},
+				_handleClick(evt) {
+					console.log(this.blockClick);
+					if (!this.blockClick) {
+						let position = this.getMousePos(evt);
+						console.log('Group : %c_handleClick', 'color:white;background:green');
+						if (!this.lines.length) {
+							this._initGroup();
+						}
+						this._appendEdge({position});
+						this.lines.push(position);
+						this._drawLines();
+					}
+				},
+				_handleMouseMove(evt) {
+					if (this.isMovingCircle && this.currentMovingCircle) {
+						console.log('Group : %c_handleMouseMove', 'color:white;background:green');
+						this._updateMovingCircle(evt);
+					}
+				},
+				_handleMouseUp(evt) {
+					console.log('Group : %c_handleMouseUp', 'color:white;background:green');
+					this.isMovingCircle = false;
+					this.currentMovingCircle = null;
+					this.blockClick = false;
+				},
+				updatePath(index, newValue) {
+					this.lines[index] = newValue;
+					this._drawLines();
+
+				},
+				_updateMovingCircle(evt) {
+					let position = this.getMousePos(evt);
+					let c = this.currentMovingCircle;
+					c.setAttributeNS(null, 'cx', position.x);
+					c.setAttributeNS(null, 'cy', position.y);
+					this.updatePath(c.dataset.index, position);
+				},
+				_drawLines() {
+					let lines = this.lines;
+					let d = '';
+					let positionTo;
+					for (let i = 0; i < lines.length; i++) {
+						positionTo = lines[i].x + ' ' + lines[i].y;
+						if (i === 0) {
+							d = 'M' + positionTo;
+						} else {
+							d += ' ' + 'L' + positionTo;
+						}
+					}
+					this.path.setAttributeNS(null, 'd', d);
+				},
+				onEdgeClick: function (event) {
+					console.log('%chi me a circle ', 'color:white;background:orange');
+					this.isMovingCircle = true;
+					this.currentMovingCircle = event.currentTarget;
+					event.preventDefault();
+					this.blockClick = true;
+				},
+				onIdleAction(data) {
+					if (data.id !== this.id) {
+						this.setIdle();
+					}
+				},
+				setIdle() {
+					this.isMovingCircle = false;
+					this.currentMovingCircle = null;
+					this.svgGroup.classList.remove(ACTIVE_CLASS);
+					let elements = this.svgGroup.querySelector('c');
+				}
+			}
+	);
+	let e = new LayerEditor();
+	document.getElementById('new_Path').addEventListener('click', function () {
+		let a = new Group({layer: e});
+	});
+
+
+</script>
+<script>
+	let circle = document.getElementById('circle');
+	let degreeValue = document.getElementById('degree_value');
+
+	function setDegree(deg) {
+		indicator.style.transform = 'rotate(' + deg + 'deg)';
+	}
+
+	degreeValue.addEventListener('change', function () {
+		let deg = 360 - (+degreeValue.value);
+		setDegree(deg);
+	})
+	let valueX = document.getElementById('rotate_x_value');
+	let valueY = document.getElementById('rotate_y_value');
+	let indicator = document.getElementById('indicator');
+	let parentRect = circle.getBoundingClientRect();
+
+	let halfWidth = parentRect.width / 2;
+	let halfHeight = parentRect.height / 2;
+	let originX = parentRect.x + halfWidth - 6;
+	let originY = parentRect.y + halfHeight - 6;
+
+	function getMousePos(evt) {
+		return {
+			x: evt.clientX,
+			y: evt.clientY
+		};
+	}
+
+	function onmousemove(evt) {
+		let position = getMousePos(evt);
+
+		let x = position.x - 9 - originX;
+		let y = position.y - 9 - originY;
+		/* do not overflow the parent */
+		if (Math.abs(x) > halfWidth) {
+			x = (x < 0 ? -1 : 1) * halfWidth;
+		}
+
+		// do not overflow the parent
+		if (Math.abs(y) > halfHeight) {
+			y = (y < 0 ? -1 : 1) * halfHeight;
+		}
+		let deg = Math.atan2(y, x) * 180 / Math.PI;
+		degreeValue.value = (360 - deg) % 360;
+		valueX.innerHTML = 'origin X: ' + originX + ' ### x : ' + position.x + 'px';
+		valueY.innerHTML = 'origin Y: ' + originY + '  ### y : ' + position.y + 'px';
+		setDegree(deg);
+	}
+
+	//circle.addEventListener('mousedown', this._eventHandlers.onmousedown, false);
+	circle.addEventListener('mousemove', onmousemove, false);
+	circle.addEventListener('mouseleave', function () {
+		circle.removeEventListener('mousemove', onmousemove, false);
+	})
+
+	circle.addEventListener('mouseenter', function () {
+		circle.addEventListener('mousemove', onmousemove, false);
+	})
+	//this.svg.addEventListener('mouseup', this._eventHandlers.onmouseup, false);
+
+</script>
+</body>
+</html>
